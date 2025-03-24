@@ -1,1 +1,119 @@
+SELECT emp_id, SUM(sales_amount) AS total_sales
+FROM (SELECT emp_id, sales_amount FROM sales) AS derived_sales
+GROUP BY emp_id;
+WITH AvgSalary AS (
+    SELECT AVG(salary) AS avg_salary
+    FROM employees
+)
+SELECT * FROM AvgSalary;
+SELECT product_id, MAX(sales_amount) AS highest_sales
+FROM (SELECT product_id, sales_amount FROM sales) AS derived_sales
+GROUP BY product_id
 
+
+WITH SalesCount AS (
+    SELECT emp_id, COUNT(*) AS sales_count
+    FROM sales
+    GROUP BY emp_id
+)
+SELECT emp_id
+FROM SalesCount
+WHERE sales_count > 5
+
+SELECT customer_id, SUM(purchase_amount) AS total_purchase
+FROM (SELECT customer_id, purchase_amount FROM purchases) AS derived_purchases
+GROUP BY customer_id
+ORDER BY total_purchase DESC
+WITH HighSales AS (
+    SELECT product_id, SUM(sales_amount) AS total_sales
+    FROM sales
+    GROUP BY product_id
+    HAVING total_sales > 500
+)
+SELECT * FROM HighSales
+
+SELECT customer_id, COUNT(order_id) AS total_orders
+FROM (SELECT customer_id, order_id FROM orders) AS derived_orders
+GROUP BY customer_id
+
+WITH AvgSalary AS (
+    SELECT AVG(salary) AS avg_salary
+    FROM employees
+)
+SELECT emp_id, name, salary
+FROM employees
+WHERE salary > (SELECT avg_salary FROM AvgSalary)
+
+SELECT product_id, SUM(quantity) AS total_sold
+FROM (SELECT product_id, quantity FROM sales) AS derived_sales
+GROUP BY product_id
+
+WITH NoSales AS (
+    SELECT emp_id
+    FROM employees
+    WHERE emp_id NOT IN (SELECT DISTINCT emp_id FROM sales)
+)
+SELECT * FROM NoSales
+
+SELECT region_id, SUM(revenue) AS total_revenue
+FROM (SELECT region_id, revenue FROM sales) AS derived_sales
+GROUP BY region_id
+
+WITH LongTenureEmployees AS (
+    SELECT emp_id, hire_date
+    FROM employees
+    WHERE DATEDIFF(CURDATE(), hire_date) > 5 * 365
+)
+SELECT * FROM LongTenureEmployees;
+SELECT customer_id, COUNT(order_id) AS total_orders
+FROM (SELECT customer_id, order_id FROM orders) AS derived_orders
+GROUP BY customer_id
+HAVING total_orders > 3
+
+WITH DeptSales AS (
+    SELECT emp_id, department_id, SUM(sales_amount) AS total_sales
+    FROM sales
+    JOIN employees ON sales.emp_id = employees.emp_id
+    WHERE department_id = 10 
+    GROUP BY emp_id, department_id
+)
+SELECT emp_id, total_sales
+FROM DeptSales
+WHERE total_sales = (SELECT MAX(total_sales) FROM DeptSales)
+
+SELECT customer_id, AVG(order_value) AS avg_order_value
+FROM (SELECT customer_id, order_value FROM orders) AS derived_orders
+GROUP BY customer_id;
+WITH DeptEmployees AS (
+    SELECT department_id, COUNT(emp_id) AS num_employees
+    FROM employees
+    GROUP BY department_id
+)
+SELECT * FROM DeptEmployees
+
+SELECT product_id, SUM(sales_amount) AS total_sales
+FROM (SELECT product_id, sales_amount FROM sales WHERE sales_date BETWEEN '2024-10-01' AND '2024-12-31') AS derived_sales
+GROUP BY product_id
+ORDER BY total_sales DESC
+LIMIT 5;
+18. Employees who have sales higher than $1000 using a CTE:
+sql
+Копировать
+WITH HighSalesEmployees AS (
+    SELECT emp_id, SUM(sales_amount) AS total_sales
+    FROM sales
+    GROUP BY emp_id
+    HAVING total_sales > 1000
+)
+SELECT emp_id
+FROM HighSalesEmployees;
+SELECT customer_id, COUNT(order_id) AS total_orders
+FROM (SELECT customer_id, order_id FROM orders) AS derived_orders
+GROUP BY customer_id
+WITH MonthlySales AS (
+    SELECT emp_id, SUM(sales_amount) AS total_sales
+    FROM sales
+    WHERE sales_date BETWEEN '2025-02-01' AND '2025-02-28' -- Adjust for the last month
+    GROUP BY emp_id
+)
+SELECT * FROM MonthlySales
