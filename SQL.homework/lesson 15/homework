@@ -1,0 +1,218 @@
+WITH RECURSIVE Fibonacci(n, fib_value) AS (
+    SELECT 1, 0
+    UNION ALL
+    SELECT 2, 1
+    UNION ALL
+    SELECT n + 1, fib_value + (SELECT fib_value FROM Fibonacci WHERE n = Fibonacci.n - 1)
+    FROM Fibonacci WHERE n < 20
+)
+SELECT * FROM Fibonacci
+
+WITH CumulativeSales AS (
+    SELECT employee_id, SUM(sales) AS total_sales, 
+           ROW_NUMBER() OVER (PARTITION BY employee_id ORDER BY sales_date) AS row_num
+    FROM sales
+    WHERE sales_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+    GROUP BY employee_id, sales_date
+)
+SELECT employee_id, SUM(total_sales) AS cumulative_sales
+FROM CumulativeSales
+GROUP BY employee_id
+
+
+WITH RECURSIVE Subordinates AS (
+    SELECT employee_id, manager_id
+    FROM employees
+    WHERE manager_id = @ManagerId
+    UNION ALL
+    SELECT e.employee_id, e.manager_id
+    FROM employees e
+    INNER JOIN Subordinates s ON e.manager_id = s.employee_id
+)
+SELECT * FROM Subordinates
+
+SELECT e.employee_id, e.region, e.sales
+FROM employees e
+INNER JOIN (
+    SELECT region, AVG(sales) AS avg_sales
+    FROM employees
+    GROUP BY region
+) AS avg_sales_per_region
+ON e.region = avg_sales_per_region.region
+WHERE e.sales > avg_sales_per_region.avg_sales
+
+WITH RECURSIVE ProductDepth AS (
+    SELECT product_id, parent_product_id, 1 AS depth
+    FROM products
+    WHERE parent_product_id IS NULL
+    UNION ALL
+    SELECT p.product_id, p.parent_product_id, pd.depth + 1
+    FROM products p
+    INNER JOIN ProductDepth pd ON p.parent_product_id = pd.product_id
+)
+SELECT product_id, depth FROM ProductDepth
+
+WITH DepartmentSales AS (
+    SELECT department_id, product_id, SUM(sales) AS total_sales
+    FROM sales
+    GROUP BY department_id, product_id
+)
+SELECT ds.department_id, ds.product_id, ds.total_sales
+FROM DepartmentSales ds
+INNER JOIN (
+    SELECT department_id, AVG(total_sales) AS avg_sales
+    FROM DepartmentSales
+    GROUP BY department_id
+) AS avg_dept_sales
+ON ds.department_id = avg_dept_sales.department_id
+WHERE ds.total_sales > avg_dept_sales.avg_sales
+
+WITH RECURSIVE Reports AS (
+    SELECT employee_id, manager_id
+    FROM employees
+    WHERE manager_id = @ManagerId
+    UNION ALL
+    SELECT e.employee_id, e.manager_id
+    FROM employees e
+    INNER JOIN Reports r ON e.manager_id = r.employee_id
+)
+SELECT * FROM Reports
+
+SELECT employee_id, sales
+FROM employees e
+WHERE e.employee_id IN (
+    SELECT employee_id
+    FROM sales
+    WHERE sales_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+    GROUP BY employee_id
+    ORDER BY SUM(sales) DESC
+    LIMIT 1
+)
+
+
+WITH RECURSIVE OrderCost AS (
+    SELECT order_id, product_id, quantity, price, 0 AS total_cost
+    FROM order_items
+    WHERE order_id = @OrderId
+    UNION ALL
+    SELECT oi.order_id, oi.product_id, oi.quantity, oi.price, 
+           (oi.quantity * oi.price) + oc.total_cost
+    FROM order_items oi
+    INNER JOIN OrderCost oc ON oi.order_id = oc.order_id
+)
+SELECT order_id, SUM(total_cost) AS total_order_cost
+FROM OrderCost
+GROUP BY order_id
+
+
+
+WITH SalesGrowth AS (
+    SELECT employee_id, 
+           SUM(CASE WHEN YEAR(sales_date) = YEAR(CURDATE()) - 1 THEN sales ELSE 0 END) AS last_year_sales,
+           SUM(CASE WHEN YEAR(sales_date) = YEAR(CURDATE()) THEN sales ELSE 0 END) AS this_year_sales
+    FROM sales
+    GROUP BY employee_id
+)
+SELECT employee_id, 
+       (this_year_sales - last_year_sales) / last_year_sales * 100 AS growth_rate
+FROM SalesGrowth
+ORDER BY growth_rate DESC
+LIMIT 1
+
+WITH RECURSIVE TotalSales AS (
+    SELECT employee_id, SUM(sales) AS total_sales
+    FROM sales
+    GROUP BY employee_id
+)
+SELECT employee_id, total_sales FROM TotalSales
+
+WITH ProductSales AS (
+    SELECT product_id, SUM(sales) AS total_sales
+    FROM sales
+    GROUP BY product_id
+)
+SELECT ps.product_id, e.employee_id, ps.total_sales
+FROM ProductSales ps
+INNER JOIN sales s ON ps.product_id = s.product_id
+INNER JOIN employees e ON s.employee_id = e.employee_id
+WHERE ps.total_sales = (SELECT MAX(total_sales) FROM ProductSales)
+
+WITH RECURSIVE OrgHierarchy AS (
+    SELECT employee_id, manager_id, 1 AS generation
+    FROM employees
+    WHERE manager_id IS NULL
+    UNION ALL
+    SELECT e.employee_id, e.manager_id, oh.generation + 1
+    FROM employees e
+    INNER JOIN OrgHierarchy oh ON e.manager_id = oh.employee_id
+)
+
+WITH DepartmentSales AS (
+    SELECT department_id, AVG(sales) AS avg_sales
+    FROM employees
+    GROUP BY department_id
+)
+SELECT e.employee_id, e.department_id, e.sales
+FROM employees e
+INNER JOIN DepartmentSales ds ON e.department_id = ds.department_id
+WHERE e.sales > ds.avg_sales
+
+
+SELECT region, AVG(sales) AS avg_sales_per_employee
+FROM employees e
+WHERE e.sales > 0
+GROUP BY region
+
+WITH RECURSIVE EmployeeReports AS (
+    SELECT employee_id, manager_id
+    FROM employees
+    WHERE manager_id = @ManagerId
+    UNION ALL
+    SELECT e.employee_id, e.manager_id
+    FROM employees e
+    INNER JOIN EmployeeReports er ON e.manager_id = er.employee_id
+)
+SELECT * FROM EmployeeReports
+
+WITH SalesCounts AS (
+    SELECT employee_id, COUNT(DISTINCT product_id) AS num_products
+    FROM sales
+    WHERE sales_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+    GROUP BY employee_id
+)
+SELECT employee_id, AVG(num_products) AS avg_products_sold
+FROM SalesCounts
+GROUP BY employee_id
+
+WITH EmployeeSales AS (
+    SELECT employee_id, product_id, SUM(sales) AS total_sales
+    FROM sales
+    GROUP BY employee_id, product_id
+)
+SELECT es.employee_id, es.product_id, es.total_sales, pc.category_name
+FROM EmployeeSales es
+INNER JOIN product_categories pc ON es.product_id = pc.product_id
+WHERE es.total_sales > (SELECT AVG(total_sales) FROM EmployeeSales WHERE employee_id = es.employee_id)
+
+WITH RECURSIVE DeptHierarchy AS (
+    SELECT department_id, parent_department_id
+    FROM departments
+    WHERE parent_department_id = @ParentDeptId
+    UNION ALL
+    SELECT d.department_id, d.parent_department_id
+    FROM departments d
+    INNER JOIN DeptHierarchy dh ON d.parent_department_id = dh.department_id
+)
+SELECT * FROM DeptHierarchy
+
+WITH RECURSIVE CategoryDepth AS (
+    SELECT category_id, parent_category_id, 1 AS depth
+    FROM product_categories
+    WHERE parent_category_id IS NULL
+    UNION ALL
+    SELECT pc.category_id, pc.parent_category_id, cd.depth + 1
+    FROM product_categories pc
+    INNER JOIN CategoryDepth cd ON pc.parent_category_id = cd.category_id
+)
+SELECT MAX(depth) AS category_levels FROM CategoryDepth
+
